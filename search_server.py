@@ -17,6 +17,13 @@ import time
 from flask import Flask, jsonify, request, Response
 
 app = Flask(__name__)
+
+def load_pi_file(path):
+    f = open(path, "rb")
+    mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+    DATA["mmap"] = mm
+    DATA["total"] = len(mm) - 1
+    print(f"Loaded {DATA['total']:,} digits from {path}")
 DATA = {}
 
 PAGE = r"""
@@ -139,12 +146,7 @@ def main():
     ap.add_argument("--port", type=int, default=5000)
     args = ap.parse_args()
 
-    f = open(args.file, "rb")
-    mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-    DATA["mmap"] = mm
-    DATA["total"] = len(mm) - 1  # minus the leading "3"
-
-    print(f"Loaded {DATA['total']:,} digits from {args.file}")
+    load_pi_file(args.file)
     print(f"Open http://localhost:{args.port} in your browser")
     app.run(host="0.0.0.0", port=args.port, debug=False)
 
