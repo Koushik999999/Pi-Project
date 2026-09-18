@@ -1,5 +1,9 @@
 # Pi Search — run locally
 
+Currently generates and searches **300 million** digits of pi. There's a plan
+below for scaling that up to 1 billion digits later — the search website
+itself won't need to change either way.
+
 ## Setup (one-time)
 ```
 pip install gmpy2 flask
@@ -7,7 +11,7 @@ pip install gmpy2 flask
 gmpy2 usually installs from a prebuilt wheel on Windows/Mac/Linux. If it fails to build,
 install the GMP/MPFR/MPC dev libraries first (on Ubuntu/Debian: `sudo apt install libgmp-dev libmpfr-dev libmpc-dev`).
 
-## Today: generate 300 million digits
+## Generate the digits (currently: 300 million)
 ```
 python generate_pi.py --digits 300000000 --chunks 24 --out pi_300m.txt
 ```
@@ -24,26 +28,30 @@ python generate_pi.py --digits 300000000 --chunks 24 --out pi_300m.txt
 ```
 python search_server.py --file pi_300m.txt
 ```
-Then open **http://localhost:5000**. Just start typing a digit string — it
-searches live as you type (no button, no Enter needed) and reports the digit
-position after the decimal point where it first occurs, with surrounding
-context. Non-digit characters are blocked in the input, both client-side and
-server-side. Uses `mmap`, so it doesn't need to load the whole file into RAM
-to search it — this also means the exact same command works unmodified once
-you have the 1-billion-digit file.
+Then open **http://localhost:5000**. Just start typing — it searches live as
+you type (no button, no Enter needed) and reports the digit position after
+the decimal point where the result first occurs, with surrounding context.
+You can type digits or letters: letters map to their position in the alphabet
+(a=1, b=2, ... z=26, case-insensitive) and get concatenated with any digits
+you typed, e.g. `batman` becomes `212013114`. A "Searching for: ..." line
+shows that converted number live, above the result. Anything that isn't a
+digit or letter is blocked in the input, both client-side and server-side.
+Uses `mmap`, so it doesn't need to load the whole file into RAM to search it —
+this also means the exact same command works unmodified once you have the
+1-billion-digit file.
 
-## Tomorrow: scaling to 1 billion digits
+## Future plan: scaling to 1 billion digits
 
 **Two ways to get there — pick based on how much time you want to spend:**
 
-**Option A — reuse today's script (simplest, slower).**
+**Option A — reuse the current script (simplest, slower).**
 ```
 python generate_pi.py --digits 1000000000 --chunks 64 --out pi_1b.txt
 ```
 - Needs **~20–28 GB free RAM** and **2–5 hours** single-threaded.
 - More chunks (64 instead of 24) means smaller/safer checkpoints, useful for a run this long.
-- Run it overnight; check `pi_checkpoints/` in the morning — if it's still going,
-  just let it keep running, it'll resume from the newest chunk if interrupted.
+- It's a multi-hour run — if it's interrupted (crash, Ctrl-C, reboot), just
+  re-run the exact same command; it resumes from the newest checkpointed chunk.
 - `finalize()` divides the combined `Q`/`T` as an exact rational before converting
   to a float — this matters at these scales because `Q`/`T` individually run into
   the billions of bits, which overflows a plain float conversion even though their
@@ -71,7 +79,7 @@ mmap-based design: whether the file is 300 MB or 1 GB, search stays fast (well
 under a second) because the OS pages in only the parts of the file actually
 touched during the scan, and `bytes.find` is implemented in optimized C.
 
-## Beyond 1 billion (for context, not for tomorrow)
+## Beyond 1 billion (for context, not part of the current plan)
 Going to 10B or 100B digits is a different kind of problem — it needs 100s of GB
 to TB of RAM (that's genuinely what the real world-record y-cruncher runs used,
 per their published benchmark logs), so it means renting a large cloud VM for
