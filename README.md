@@ -24,10 +24,13 @@ python generate_pi.py --digits 300000000 --chunks 24 --out pi_300m.txt
 ```
 python search_server.py --file pi_300m.txt
 ```
-Then open **http://localhost:5000**. Type any digit string and it tells you the
-first position it occurs at in pi, with surrounding context. Uses `mmap`, so it
-doesn't need to load the whole file into RAM to search it — this also means the
-exact same command works unmodified once you have the 1-billion-digit file.
+Then open **http://localhost:5000**. Just start typing a digit string — it
+searches live as you type (no button, no Enter needed) and reports the digit
+position after the decimal point where it first occurs, with surrounding
+context. Non-digit characters are blocked in the input, both client-side and
+server-side. Uses `mmap`, so it doesn't need to load the whole file into RAM
+to search it — this also means the exact same command works unmodified once
+you have the 1-billion-digit file.
 
 ## Tomorrow: scaling to 1 billion digits
 
@@ -41,6 +44,12 @@ python generate_pi.py --digits 1000000000 --chunks 64 --out pi_1b.txt
 - More chunks (64 instead of 24) means smaller/safer checkpoints, useful for a run this long.
 - Run it overnight; check `pi_checkpoints/` in the morning — if it's still going,
   just let it keep running, it'll resume from the newest chunk if interrupted.
+- `finalize()` divides the combined `Q`/`T` as an exact rational before converting
+  to a float — this matters at these scales because `Q`/`T` individually run into
+  the billions of bits, which overflows a plain float conversion even though their
+  ratio is a normal-sized number. Already fixed and validated against known pi
+  digits at 300M; no action needed, just don't "simplify" that line back to a
+  direct float division.
 
 **Option B — use y-cruncher instead (faster, same end result).**
 y-cruncher (by Alexander Yee) is the actual program behind every pi world record —
