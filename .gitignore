@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Large Pi digit/data files
+*.txt
+*.dat
+*.bin
+
+# Pickle/checkpoint files
+*.pkl
+pi_checkpoints/
+
+# Claude / AI tool files
+.claude/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
