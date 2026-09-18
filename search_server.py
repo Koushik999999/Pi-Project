@@ -39,9 +39,11 @@ PAGE = r"""
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 700px;
          margin: 60px auto; padding: 0 20px; color: #222; }
   h1 { font-size: 1.6rem; }
+  .pi-symbol { font-weight: 700; font-size: 1.8em; }
   input { font-size: 1.1rem; padding: 10px 14px; width: 100%; box-sizing: border-box;
           border: 1px solid #ccc; border-radius: 8px; }
   #result { margin-top: 24px; line-height: 1.6; }
+  .searching-for { color: #555; font-size: 0.95rem; }
   .pos { font-weight: 600; color: #0a6b3d; }
   .ctx { font-family: ui-monospace, Menlo, monospace; background: #f4f4f4;
          padding: 10px; border-radius: 8px; word-break: break-all; }
@@ -50,10 +52,11 @@ PAGE = r"""
 </style>
 </head>
 <body>
-  <h1>🥧 Pi Search — {{TOTAL}} digits</h1>
-  <p>Type any sequence of digits and find where it first occurs in pi.</p>
-  <input id="q" placeholder="e.g. your birthday, 141592, phone number..."
-         inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus>
+  <h1><span class="pi-symbol">π</span> Search — {{TOTAL}} digits</h1>
+  <p>Type digits or letters — letters map to their position in the alphabet
+     (a=1, b=2, ... z=26) — and find where the resulting number first occurs in pi.</p>
+  <input id="q" placeholder="e.g. Koushik, 141592, your birthday..."
+         autocomplete="off" autofocus>
   <div id="result"></div>
 
 <script>
@@ -62,41 +65,57 @@ const resultDiv = document.getElementById('result');
 let debounceTimer = null;
 let requestSeq = 0;
 
+// a/A=1, b/B=2, ... z/Z=26, digits pass through unchanged.
+function charToDigits(ch) {
+  if (/[0-9]/.test(ch)) return ch;
+  return String(ch.toLowerCase().charCodeAt(0) - 'a'.charCodeAt(0) + 1);
+}
+function convertToNumber(str) {
+  return [...str].map(charToDigits).join('');
+}
+function previewLine(number) {
+  return `<p class="searching-for">Searching for: ${number}</p>`;
+}
+
 input.addEventListener('input', () => {
-  const digitsOnly = input.value.replace(/\D/g, '');
-  if (digitsOnly !== input.value) input.value = digitsOnly;
+  const cleaned = input.value.replace(/[^0-9a-zA-Z]/g, '');
+  if (cleaned !== input.value) input.value = cleaned;
   clearTimeout(debounceTimer);
-  if (!digitsOnly) {
+  if (!cleaned) {
     resultDiv.innerHTML = '';
     return;
   }
+  resultDiv.innerHTML = previewLine(convertToNumber(cleaned));
   debounceTimer = setTimeout(doSearch, 150);
 });
 
-// Belt-and-suspenders: block non-digit keys outright (input listener above
+// Belt-and-suspenders: block disallowed keys outright (input listener above
 // also strips paste/autofill/IME text that keydown never sees).
 input.addEventListener('keydown', e => {
   if (e.key === 'Enter') { clearTimeout(debounceTimer); doSearch(); return; }
   const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight',
                     'ArrowUp', 'ArrowDown', 'Home', 'End'];
   if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
-  if (!/^\d$/.test(e.key)) e.preventDefault();
+  if (!/^[0-9a-zA-Z]$/.test(e.key)) e.preventDefault();
 });
 
 async function doSearch() {
-  const q = input.value.trim();
-  if (!q) { resultDiv.innerHTML = ''; return; }
+  const raw = input.value.trim();
+  if (!raw) { resultDiv.innerHTML = ''; return; }
+  const q = convertToNumber(raw);
   const mySeq = ++requestSeq;
   const t0 = performance.now();
   const res = await fetch('/api/search?q=' + encodeURIComponent(q));
   const data = await res.json();
   if (mySeq !== requestSeq) return; // a newer keystroke already superseded this
   const ms = (performance.now() - t0).toFixed(1);
+  const preview = previewLine(q);
   if (!data.found) {
-    resultDiv.innerHTML = `<p>"${q}" was not found. (${data.error || ''})</p>`;
+    resultDiv.innerHTML = `${preview}<p>"${q}" was not found. (${data.error || ''})</p>`;
     return;
   }
   resultDiv.innerHTML = `
+    ${preview}
     <p>Found at digit position <span class="pos">${data.position.toLocaleString()}</span>.</p>
     <div class="ctx">${data.context_before}<span class="hi">${data.match}</span>${data.context_after}</div>
     <div class="meta">query answered in ${ms} ms (server-side search: ${data.server_ms} ms)</div>
