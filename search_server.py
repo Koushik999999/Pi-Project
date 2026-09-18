@@ -13,18 +13,21 @@ import argparse
 import mmap
 import re
 import time
-
+import os
 from flask import Flask, jsonify, request, Response
 
 app = Flask(__name__)
-
+DATA = {}
 def load_pi_file(path):
     f = open(path, "rb")
     mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
     DATA["mmap"] = mm
     DATA["total"] = len(mm) - 1
     print(f"Loaded {DATA['total']:,} digits from {path}")
-DATA = {}
+
+
+PI_FILE = os.environ.get("PI_FILE", "pi_300m.txt")
+load_pi_file(PI_FILE)
 
 PAGE = r"""
 <!doctype html>
@@ -142,11 +145,13 @@ def api_search():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--file", required=True, help="path to the generated digits text file")
+    ap.add_argument("--file", default=PI_FILE, help="path to the generated digits text file")
     ap.add_argument("--port", type=int, default=5000)
     args = ap.parse_args()
 
-    load_pi_file(args.file)
+    if args.file != PI_FILE:
+        load_pi_file(args.file)
+
     print(f"Open http://localhost:{args.port} in your browser")
     app.run(host="0.0.0.0", port=args.port, debug=False)
 
